@@ -16,6 +16,7 @@ def synchronization(cloud_obj: YandexConnector, tracked_directory: str) -> None:
     :param tracked_directory: отслеживаемая директория на компьютере пользователя
     :return: None
     """
+
     try:
         files_in_disk = cloud_obj.get_files_info()
         files_in_dir = os.listdir(tracked_directory)
@@ -24,21 +25,27 @@ def synchronization(cloud_obj: YandexConnector, tracked_directory: str) -> None:
         for file_name in files_in_dir:
             if file_name not in files_in_disk.keys():
                 cloud_obj.load(os.path.join(tracked_directory, file_name))
+                logger.info(f'{str(datetime.now())[:19]}: Файл {file_name} успешно загружен на Диск')
                 add_count += 1
 
-        for file_name, m_data in files_in_disk.items():
-            m_time = datetime.fromtimestamp(os.path.getmtime(os.path.join(tracked_directory, file_name)))
-            if file_name in files_in_dir and str(m_time)[:19] > m_data:
-                cloud_obj.load(os.path.join(tracked_directory, file_name))
-                add_count += 1
-            elif file_name not in files_in_dir:
+        for file_name, m_date_file_in_disk in files_in_disk.items():
+            if file_name not in files_in_dir:
                 cloud_obj.delete(file_name)
+                logger.info(f'{str(datetime.now())[:19]}: Файл {file_name} успешно удален')
                 delete_count += 1
+                continue
+            m_date_file_in_dir = datetime.utcfromtimestamp(
+                os.path.getmtime(os.path.join(tracked_directory, file_name))
+            ).isoformat()
+            if file_name in files_in_dir and m_date_file_in_dir > m_date_file_in_disk:
+                cloud_obj.load(os.path.join(tracked_directory, file_name))
+                logger.info(f'{str(datetime.now())[:19]}: Файл {file_name} успешно перезаписан')
+                add_count += 1
         else:
             logger.info(f'{str(datetime.now())[:19]}: Загружено {add_count} файлов. Удалено {delete_count} файлов')
-    except (FileNotFoundError, AttributeError, KeyError, FileExistsError) as exc:
+    except (FileNotFoundError, FileExistsError) as exc:
         logger.error(exc)
-        exit(exc)
+        exit()
     except Exception as exc:
         logger.error(exc)
 
@@ -64,4 +71,4 @@ def main() -> None:
     logger.info(f'{datetime.now()}: Программа синхронизации файлов начала работу с директорией {tracked_directory}')
     while True:
         synchronization(my_disk, tracked_directory)
-        time.sleep(60)
+        time.sleep(10)

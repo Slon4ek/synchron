@@ -1,4 +1,4 @@
-import json
+import datetime
 import os
 from typing import Dict
 
@@ -70,7 +70,7 @@ class YandexConnector:
                          }
             return disk_info
         else:
-            logger.error(request.json()['description'])
+            logger.error(request.json()['message'])
 
     def get_files_info(self) -> Dict:
         """
@@ -87,11 +87,11 @@ class YandexConnector:
             request = request.json()
             file_dict = dict()
             for file in request['_embedded']['items']:
-                m_date = file['modified'].replace('T', ' ')
-                file_dict[file['name']] = m_date[:19]
+                file_dict[file['name']] = file['modified'][:19]
             return file_dict
         else:
-            logger.error(request.json()['description'])
+            logger.error(request.json()['message'])
+            exit()
 
     def load(self, file_path: str) -> None:
         """
@@ -108,23 +108,11 @@ class YandexConnector:
         if request.status_code == requests.codes.ok:
             request = request.json()
             with open(file_path, 'rb') as file:
-                request = requests.put(request['href'], files={'file': file})
-                if request.status_code == 201:
-                    logger.info(f'Файл {file_name} успешно загружен на диск')
-                elif request.status_code == 413:
-                    logger.error(f'Файл {file_name} не загружен. Размер файла больше допустимого. '
-                                 'Если у вас есть подписка на Яндекс 360, '
-                                 'можно загружать файлы размером до 50 ГБ, '
-                                 'если подписки нет — до 1 ГБ.')
-                elif request.status_code == 500 or 503:
-                    logger.error(f'Файл {file_name} не загружен. Ошибка сервера, попробуйте повторить загрузку.')
-                elif request.status_code == 507:
-                    logger.error(f'Файл {file_name} не загружен. '
-                                 f'Для загрузки файла не хватает места на Диске пользователя.')
+                requests.put(request['href'], files={'file': file})
         else:
-            logger.error(request.json()['description'])
+            logger.error(request.json()['message'])
 
-    def delete(self, file_name:str) -> None:
+    def delete(self, file_name: str) -> None:
         """
         Метод удаления файла с хранилища Яндекс Диска
         :param file_name: имя удаляемого файла
@@ -132,7 +120,5 @@ class YandexConnector:
         """
         params = {'path': self._dir_name + file_name}
         request = self.__main_delete_request(self._endpoints['files'], params)
-        if request.status_code == 204:
-            logger.info(f'Файл {file_name} успешно удален')
-        else:
-            logger.error(request.json()['description'])
+        if request.status_code != 204:
+            logger.error(request.json()['message'])
